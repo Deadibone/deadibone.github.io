@@ -1,0 +1,414 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deadibone</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-QWTKZyjpPEjISv5WaRU9OFeRpok6YctnYmDr5pNlyT2bRjXh0JMhjY6hW+ALEwIH" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js" integrity="sha384-YvpcrYf0tY3lHB60NNkmXc5s9fDVZLESaAA55NDzOxhy9GkcIdslK1eN7N6jIeHz" crossorigin="anonymous"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body {
+            transition: background-color 0.3s ease, color 0.3s ease;
+        }
+        .hero {
+            background: linear-gradient(135deg, #6f42c1, #9d4edd);
+            color: white;
+            padding: 100px 0;
+            text-align: center;
+            border-radius: 0 0 50% 50% / 0 0 20px 20px;
+            overflow: hidden;
+            position: relative;
+        }
+        .hero::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.1);
+            z-index: 1;
+        }
+        .hero > * {
+            position: relative;
+            z-index: 2;
+        }
+        .animate-fade {
+            animation: fadeIn 1.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .skill-icon, .project-card {
+            transition: transform 0.3s ease;
+        }
+        .skill-icon:hover, .project-card:hover {
+            transform: scale(1.05);
+        }
+        [data-bs-theme="dark"] {
+            background-color: #1a1a2e;
+            color: #e0e0e0;
+        }
+        [data-bs-theme="dark"] .hero {
+            background: linear-gradient(135deg, #5a189a, #7209b7);
+        }
+        [data-bs-theme="dark"] .card {
+            background-color: #2a2a3e;
+            border: 1px solid #4a4a6e;
+        }
+        .social-icon {
+            color: inherit;
+            text-decoration: none;
+            transition: color 0.3s;
+        }
+        .social-icon:hover {
+            color: #9d4edd;
+        }
+        [data-bs-theme="dark"] .social-icon:hover {
+            color: #c77dff;
+        }
+        .btn-primary {
+            background-color: #7209b7;
+            border-color: #7209b7;
+        }
+        .btn-primary:hover {
+            background-color: #9d4edd;
+            border-color: #9d4edd;
+        }
+        .navbar {
+            background-color: #5a189a;
+        }
+        [data-bs-theme="dark"] .navbar {
+            background-color: #2a2a3e;
+        }
+        .project-category {
+            margin-top: 3rem;
+        }
+        .project-category h3 {
+            color: #9d4edd;
+            border-bottom: 2px solid #9d4edd;
+            padding-bottom: 0.5rem;
+        }
+        [data-bs-theme="dark"] .project-category h3 {
+            color: #c77dff;
+            border-bottom-color: #c77dff;
+        }
+        #other-projects {
+            display: none;
+        }
+        #other-projects.show {
+            display: block;
+        }
+        .dark-mode-toggle {
+            z-index: 1050;
+        }
+        .dark-mode-toggle .bi-sun-fill {
+            display: inline;
+        }
+        .dark-mode-toggle .bi-moon-fill {
+            display: none;
+        }
+        [data-bs-theme="dark"] .dark-mode-toggle .bi-sun-fill {
+            display: none;
+        }
+        [data-bs-theme="dark"] .dark-mode-toggle .bi-moon-fill {
+            display: inline;
+        }
+    </style>
+</head>
+<body>
+    <!-- Navbar -->
+    <nav class="navbar navbar-expand-lg navbar-dark sticky-top">
+        <div class="container">
+            <a class="navbar-brand" href="#">Deadibone</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="#home">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#projects">Projects</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#connect">Connect</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="#skills">Skills</a>
+                    </li>
+                    <li class="nav-item">
+                        <button class="btn btn-outline-light ms-2 dark-mode-toggle" onclick="toggleTheme()">
+                            <i class="bi bi-sun-fill"></i>
+                            <i class="bi bi-moon-fill"></i>
+                        </button>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <script>
+        function toggleTheme() {
+            const html = document.documentElement;
+            if (html.getAttribute('data-bs-theme') === 'light') {
+                html.setAttribute('data-bs-theme', 'dark');
+            } else {
+                html.setAttribute('data-bs-theme', 'light');
+            }
+        }
+        function toggleProjects() {
+            const otherProjects = document.getElementById('other-projects');
+            const viewMoreBtn = document.getElementById('view-more-btn');
+            if (otherProjects.classList.contains('show')) {
+                otherProjects.classList.remove('show');
+                viewMoreBtn.textContent = 'View More';
+            } else {
+                otherProjects.classList.add('show');
+                viewMoreBtn.textContent = 'View Less';
+            }
+        }
+    </script>
+
+    <!-- Hero Section -->
+    <section id="home" class="hero animate-fade">
+        <div class="container">
+            <h1 class="display-3">Hi 👋, It's Deadibone</h1>
+            <p class="lead fs-4">News: I have founded <a href="https://dbp.netlify.app" class="text-white text-decoration-underline">Deadibone Productions</a>, to create my new game, <a href="https://tlob.netlify.app" class="text-white text-decoration-underline">The Legend of Blocks</a></p>
+        </div>
+    </section>
+
+    <!-- Projects Section -->
+    <section id="projects" class="container my-5 animate-fade">
+        <h2 class="text-center mb-4">My Projects</h2>
+        
+        <!-- Minecraft Stuff -->
+        <div class="project-category">
+            <h3 class="text-center mb-4">Deadibone Productions</h3>
+            <div class="row g-4">
+                <div class="col-md-12">
+                    <div class="card project-card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">The Legend of Blocks</h5>
+                            <p class="card-text">The most ambitious MMORPG the Minecraft Community has ever seen!</p>
+                            <p class="card-text"><small class="text-muted">Coming Soon!</small></p>
+                            <a href="https://tlob.netlify.app" class="btn btn-primary me-2">View more</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Other Projects (Initially Hidden) -->
+        <div id="other-projects" class="project-category">
+            <!-- Minecraft Stuff -->
+        <div class="project-category">
+            <h3 class="text-center mb-4">Minecraft Stuff ⛏️⛏️⛏️</h3>
+            <div class="row g-4">
+                <div class="col-md-12">
+                    <div class="card project-card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title">A Vanilla Aether</h5>
+                            <p class="card-text">A Minecraft datapack that adds the Aether and its highlands, with updates including portal creation and foliage color changes.</p>
+                            <p class="card-text"><small class="text-muted">Compatible with JAVA 1.21</small></p>
+                            <a href="https://github.com/deadibone/A-Vanilla-Aether/releases/download/03/A-Vanilla-Aether.v0.3.zip" class="btn btn-primary me-2">Download</a>
+                            <a href="https://www.planetminecraft.com/data-pack/a-vanilla-aether/" class="btn btn-outline-primary">View on Planet Minecraft</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+            <!-- Artificial Intelligences -->
+            <div class="project-category">
+                <h3 class="text-center mb-4">Artificial Intelligences 🤖🤖💻💻</h3>
+                <div class="row g-4">
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card project-card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">GPT4 in the terminal</h5>
+                                <p class="card-text">A chatbot created in one day using a specific model.</p>
+                                <p class="card-text"><small class="text-muted">Uses Hugging Face model, Python</small></p>
+                                <a href="https://deadibone.github.io/gpt4" class="btn btn-primary">View Project</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card project-card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Chat Whatever (Dumb AI)</h5>
+                                <p class="card-text">A project featuring a basic AI with limited functionality.</p>
+                                <p class="card-text"><small class="text-muted">Python</small></p>
+                                <a href="https://github.com/deadibone/chatwhatever/releases/tag/11" class="btn btn-primary">Download Windows</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card project-card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Social Work GPT (Dumb Social Worker)</h5>
+                                <p class="card-text">A basic social worker bot project created before the developer took CS50, not intended as a replacement for a doctor.</p>
+                                <p class="card-text"><small class="text-muted">Python</small></p>
+                                <a href="https://github.com/deadibone/socialworkgpt/releases/11" class="btn btn-primary">Download Windows</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Games -->
+            <div class="project-category">
+                <h3 class="text-center mb-4">Games 🎮🎮🕹️🕹️</h3>
+                <div class="row g-4">
+                    <div class="col-md-12">
+                        <div class="card project-card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">The Steven He Game</h5>
+                                <p class="card-text">A game referred to as a "dumb asian game."</p>
+                                <p class="card-text"><small class="text-muted">Python</small></p>
+                                <a href="https://github.com/deadibone/stevengame/releases/10" class="btn btn-primary">Download Windows</a>
+                            </div>
+                        </div>
+                    </div>
+                    
+                </div>
+            </div>
+
+            <!-- Other stuff -->
+            <div class="project-category">
+                <h3 class="text-center mb-4">Other stuff 📙📙📙</h3>
+                <div class="row g-4">
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card project-card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Browserly (Weird Browser)</h5>
+                                <p class="card-text">A fast but unconventional browser.</p>
+                                <p class="card-text"><small class="text-muted">Python</small></p>
+                                <a href="https://github.com/deadibone/Browserly/releases/10" class="btn btn-primary">Download Windows</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card project-card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Textity (Weird Text Editor)</h5>
+                                <p class="card-text">A weird text editor.</p>
+                                <p class="card-text"><small class="text-muted">Python</small></p>
+                                <a href="https://github.com/deadibone/texitiy/releases/10" class="btn btn-primary">Download Windows</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6 col-lg-4">
+                        <div class="card project-card h-100">
+                            <div class="card-body">
+                                <h5 class="card-title">Deadibone OS (Weird but usable OS)</h5>
+                                <p class="card-text">A simple operating system written in Python, not intended for professional use. Includes basic commands like cd, mkdir, rm, rmdir, fetch, reboot, and support for Python and pip operations.</p>
+                                <p class="card-text"><small class="text-muted">Python</small></p>
+                                <a href="https://deadibone.github.io/DeadiboneOS/" class="btn btn-primary">View Project</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- View More Button -->
+        <div class="text-center mt-4">
+            <button id="view-more-btn" class="btn btn-primary" onclick="toggleProjects()">View More</button>
+        </div>
+    </section>
+
+    <!-- Connect Section -->
+    <section id="connect" class="container my-5 animate-fade">
+        <h3 class="text-center mb-4">Connect with me:</h3>
+        <div class="d-flex justify-content-center gap-5">
+            <a href="https://www.youtube.com/c/deadibone" class="social-icon fs-1">
+                <img src="https://www.svgrepo.com/show/473495/youtube.svg" alt="YouTube" width="50" height="50" class="skill-icon">
+            </a>
+            <a href="https://dbp.netlify.app" class="social-icon fs-1">
+                DBP
+            </a>
+        </div>
+    </section>
+
+    <!-- Languages and Tools Section -->
+    <section id="skills" class="container my-5 animate-fade">
+        <h3 class="text-center mb-4">Languages and Tools I know:</h3>
+        <div class="d-flex flex-wrap justify-content-center gap-4">
+            <a href="https://www.gnu.org/software/bash/">
+                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/bash/bash-original.svg" alt="Bash" width="50" height="50" class="skill-icon">
+            </a>
+            <a href="https://www.blender.org/">
+                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/blender/blender-original.svg" alt="Blender" width="50" height="50" class="skill-icon">
+            </a>
+            <a href="https://getbootstrap.com">
+                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/bootstrap/bootstrap-plain.svg" alt="Bootstrap" width="50" height="50" class="skill-icon">
+            </a>
+            <a href="https://www.cprogramming.com/">
+                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/c/c-original.svg" alt="C" width="50" height="50" class="skill-icon">
+            </a>
+            <a href="https://www.w3schools.com/css/">
+                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/css3/css3-original.svg" alt="CSS" width="50" height="50" class="skill-icon">
+            </a>
+            <a href="https://git-scm.com/">
+                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/git/git-original.svg" alt="Git" width="50" height="50" class="skill-icon">
+            </a>
+            <a href="https://www.w3.org/html/">
+                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/html5/html5-original.svg" alt="HTML" width="50" height="50" class="skill-icon">
+            </a>
+            <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript">
+                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/javascript/javascript-original.svg" alt="JavaScript" width="50" height="50" class="skill-icon">
+            </a>
+            <a href="https://www.linux.org/">
+                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/linux/linux-original.svg" alt="Linux" width="50" height="50" class="skill-icon">
+            </a>
+            <a href="https://www.python.org">
+                <img src="https://cdn.jsdelivr.net/gh/devicons/devicon/icons/python/python-original.svg" alt="Python" width="50" height="50" class="skill-icon">
+            </a>
+        </div>
+    </section>
+
+</body>
+</html>
